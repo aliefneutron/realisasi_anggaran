@@ -34,17 +34,15 @@ const ImportPreviewModal = ({ visible, onCancel, onConfirm, validationResult, lo
         },
         {
             title: 'Pagu',
-            dataIndex: 'pagu',
+            dataIndex: ['belanja', 'pagu'],
             key: 'pagu',
-            width: 120,
-            render: (value) => `Rp${value.toLocaleString('id-ID')}`
+            render: (value) => value !== undefined && value !== null ? `Rp${value.toLocaleString('id-ID')}` : '-'
         },
         {
             title: 'Realisasi',
             dataIndex: 'realisasi',
             key: 'realisasi',
-            width: 120,
-            render: (value) => `Rp${value.toLocaleString('id-ID')}`
+            render: (value) => value !== undefined && value !== null ? `Rp${value.toLocaleString('id-ID')}` : '-'
         },
         {
             title: 'Status',

@@ -5,6 +5,11 @@ import { SearchOutlined, ReloadOutlined, FilterOutlined } from '@ant-design/icon
 const { Option } = Select;
 const { Search } = Input;
 
+const getCurrentSemester = () => {
+  const month = new Date().getMonth();
+  return month < 6 ? 'Semester 1' : 'Semester 2';
+};
+
 const Filters = ({ 
   onFilterChange, 
   loading = false, 
@@ -12,7 +17,7 @@ const Filters = ({
   initialFilters = {}
 }) => {
   const [filters, setFilters] = useState({
-    semester: 'all',
+    semester: getCurrentSemester(),
     bidang: [],
     search: '',
     ...initialFilters

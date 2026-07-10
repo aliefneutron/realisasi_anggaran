@@ -10,21 +10,28 @@ import BudgetTable from '../components/BudgetTable';
 import BudgetFormModal from '../components/BudgetFormModal';
 
 // Services & Utils
-import { getBudgetData, getFilterOptions, updateBudgetItem } from '../services/api';
+import { getBudgetData, getFilterOptions, updateBudgetItem, getSummaryTotals, getAllRealizationHistory } from '../services/api';
 import { processBudgetData, calculateSummary, filterData, generateChartData } from '../utils/helpers';
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+
+const getCurrentSemester = () => {
+  const month = new Date().getMonth();
+  return month < 6 ? 'Semester 1' : 'Semester 2';
+};
 
 const HomePage = () => {
   // State management
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
+  const [historyData, setHistoryData] = useState([]);
   const [summary, setSummary] = useState({});
+  const [exactTotals, setExactTotals] = useState({});
   const [filterOptions, setFilterOptions] = useState({ semesters: [], bidangs: [] });
   const [currentFilters, setCurrentFilters] = useState({
-    semester: 'all',
+    semester: getCurrentSemester(),
     bidang: [],
     search: ''
   });
@@ -45,16 +52,40 @@ const HomePage = () => {
       setLoading(true);
       
       // Load data and filter options in parallel
-      const [budgetResponse, filterResponse] = await Promise.all([
+      const [budgetResponse, filterResponse, summaryResponse, historyResponse] = await Promise.all([
         getBudgetData(),
-        getFilterOptions()
+        getFilterOptions(),
+        getSummaryTotals(),
+        getAllRealizationHistory()
       ]);
+
+      let currentHistoryData = [];
+      if (historyResponse.success) {
+        currentHistoryData = historyResponse.data;
+        setHistoryData(currentHistoryData);
+      }
+
+      let loadedExactTotals = {};
+      if (summaryResponse.success) {
+        loadedExactTotals = summaryResponse.data;
+        setExactTotals(loadedExactTotals);
+      }
 
       if (budgetResponse.success) {
         const processedData = processBudgetData(budgetResponse.data);
         setData(processedData);
-        setFilteredData(processedData);
-        setSummary(calculateSummary(processedData));
+        
+        const initialFiltered = filterData(processedData, currentFilters, currentHistoryData);
+        setFilteredData(initialFiltered);
+        
+        const baseSummary = calculateSummary(initialFiltered);
+        if (loadedExactTotals['DINKES_INDUK']) {
+          baseSummary.totalPagu = loadedExactTotals['DINKES_INDUK'].pagu;
+          baseSummary.totalRealisasi = loadedExactTotals['DINKES_INDUK'].realisasi;
+          baseSummary.totalSisa = baseSummary.totalPagu - baseSummary.totalRealisasi;
+          baseSummary.averagePercentage = baseSummary.totalPagu > 0 ? (baseSummary.totalRealisasi / baseSummary.totalPagu) * 100 : 0;
+        }
+        setSummary(baseSummary);
       }
 
       if (filterResponse.success) {
@@ -74,10 +105,31 @@ const HomePage = () => {
     setCurrentFilters(filters);
     
     // Apply filters to data
-    const filtered = filterData(data, filters);
+    const filtered = filterData(data, filters, historyData);
     setFilteredData(filtered);
-    setSummary(calculateSummary(filtered));
-  }, [data]);
+    
+    const newSummary = calculateSummary(filtered);
+    
+    // Override totals if specific Bidang is selected, or if 'all' is selected
+    if (filters.bidang && filters.bidang.length === 1) {
+      const selectedBidang = filters.bidang[0];
+      if (exactTotals[selectedBidang]) {
+        newSummary.totalPagu = exactTotals[selectedBidang].pagu;
+        newSummary.totalRealisasi = exactTotals[selectedBidang].realisasi;
+        newSummary.totalSisa = newSummary.totalPagu - newSummary.totalRealisasi;
+        newSummary.averagePercentage = newSummary.totalPagu > 0 ? (newSummary.totalRealisasi / newSummary.totalPagu) * 100 : 0;
+      }
+    } else if (!filters.bidang || filters.bidang.length === 0) {
+      if (exactTotals['DINKES_INDUK']) {
+        newSummary.totalPagu = exactTotals['DINKES_INDUK'].pagu;
+        newSummary.totalRealisasi = exactTotals['DINKES_INDUK'].realisasi;
+        newSummary.totalSisa = newSummary.totalPagu - newSummary.totalRealisasi;
+        newSummary.averagePercentage = newSummary.totalPagu > 0 ? (newSummary.totalRealisasi / newSummary.totalPagu) * 100 : 0;
+      }
+    }
+    
+    setSummary(newSummary);
+  }, [data, exactTotals, historyData]);
 
   // Chart configurations
   const barChartData = generateChartData(filteredData, 'bidang');
@@ -212,7 +264,9 @@ const HomePage = () => {
     console.log('Delete record:', id);
     const newData = data.filter(item => item.id !== id);
     setData(newData);
-    handleFilterChange(currentFilters); // Re-apply filters
+    // Re-apply filters
+    const filtered = filterData(newData, currentFilters, historyData);
+    setFilteredData(filtered);
     message.success('Data berhasil dihapus');
   };
 
@@ -226,7 +280,9 @@ const HomePage = () => {
           item.id === values.id ? processBudgetData([response.data])[0] : item
         );
         setData(updatedData);
-        handleFilterChange(currentFilters); // Re-apply filters
+        // Re-apply filters
+        const filtered = filterData(updatedData, currentFilters, historyData);
+        setFilteredData(filtered);
         message.success('Data berhasil diperbarui');
         setIsModalVisible(false);
       }
@@ -303,26 +359,15 @@ const HomePage = () => {
       <Row>
         <Col span={24}>
           <BudgetTable
-            data={filteredData.slice(0, 10)} // Show only top 10 for dashboard
+            data={filteredData}
             loading={loading}
             onView={handleView}
             onEdit={handleEdit}
             onDelete={handleDelete}
             showActions={true}
-            pagination={false}
+            pagination={true}
             size="small"
           />
-          
-          {filteredData.length > 10 && (
-            <Card style={{ marginTop: 16, textAlign: 'center' }}>
-              <p style={{ margin: 0, color: '#666' }}>
-                Menampilkan 10 dari {filteredData.length} data. 
-                <a href="/detail" style={{ marginLeft: 8 }}>
-                  Lihat semua data →
-                </a>
-              </p>
-            </Card>
-          )}
         </Col>
       </Row>
 

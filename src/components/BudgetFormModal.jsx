@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Form,
@@ -8,11 +8,16 @@ import {
   DatePicker,
   Row,
   Col,
-  Descriptions
+  Descriptions,
+  Table,
+  Spin,
+  Typography
 } from 'antd';
 import moment from 'moment';
+import { getRealizationHistory } from '../services/api';
 
 const { Option } = Select;
+const { Title } = Typography;
 
 const BudgetFormModal = ({ 
   visible,
@@ -25,16 +30,38 @@ const BudgetFormModal = ({
 }) => {
   const [form] = Form.useForm();
 
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   useEffect(() => {
     if (record) {
       form.setFieldsValue({
         ...record,
         // Ensure date fields are moment objects if they exist
       });
+      
+      if (mode === 'view') {
+        fetchHistory(record.id);
+      }
     } else {
       form.resetFields();
+      setHistory([]);
     }
-  }, [record, form]);
+  }, [record, form, mode]);
+
+  const fetchHistory = async (id) => {
+    try {
+      setLoadingHistory(true);
+      const res = await getRealizationHistory(id);
+      if (res.success) {
+        setHistory(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const handleOk = () => {
     form.validateFields()
@@ -61,6 +88,7 @@ const BudgetFormModal = ({
       destroyOnClose
     >
       {isViewMode ? (
+      <div>
         <Descriptions bordered column={1} size="small">
           <Descriptions.Item label="Nama Kegiatan">{record?.nama_kegiatan}</Descriptions.Item>
           <Descriptions.Item label="Kode Rekening">{record?.kode_rekening}</Descriptions.Item>
@@ -72,6 +100,39 @@ const BudgetFormModal = ({
           <Descriptions.Item label="Persentase">{`${record?.percentage?.toFixed(1)}%`}</Descriptions.Item>
           <Descriptions.Item label="Status">{record?.status}</Descriptions.Item>
         </Descriptions>
+        
+        <div style={{ marginTop: 24 }}>
+          <Title level={5}>Riwayat Realisasi</Title>
+          {loadingHistory ? (
+            <Spin size="small" />
+          ) : (
+            <Table
+              dataSource={history}
+              rowKey="id"
+              pagination={{ pageSize: 5 }}
+              size="small"
+              columns={[
+                {
+                  title: 'Tanggal',
+                  dataIndex: 'tanggal',
+                  key: 'tanggal',
+                },
+                {
+                  title: 'Uraian',
+                  dataIndex: 'uraian',
+                  key: 'uraian',
+                },
+                {
+                  title: 'Jumlah',
+                  dataIndex: 'jumlah_realisasi',
+                  key: 'jumlah_realisasi',
+                  render: (val) => `Rp. ${val?.toLocaleString('id-ID')}`
+                }
+              ]}
+            />
+          )}
+        </div>
+      </div>
       ) : (
         <Form form={form} layout="vertical" name="budget_form">
           <Row gutter={16}>

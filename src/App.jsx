@@ -18,6 +18,7 @@ import DetailPage from './pages/DetailPage';
 import HierarchicalDashboard from './components/HierarchicalDashboard';
 import SipdCardPage from './pages/SipdCardPage';
 import UploadPage from './pages/UploadPage';
+import MonthlyReportTable from './components/MonthlyReportTable';
 
 const { Header, Content, Footer } = Layout;
 
@@ -92,6 +93,7 @@ const AppHeader = () => {
       <nav style={{ lineHeight: '64px', flex: 1, marginLeft: '40px' }}>
         <a href="/" style={{ color: 'white', marginRight: '24px' }}>Dashboard</a>
         <a href="/hierarchy" style={{ color: 'white', marginRight: '24px' }}>Hierarki</a>
+        <a href="/monthly-report" style={{ color: 'white', marginRight: '24px' }}>Laporan Bulanan</a>
         <a href="/detail" style={{ color: 'white', marginRight: '24px' }}>Input Data</a>
         {/* Unit SKPD only visible for admin */}
         {currentUser?.role === 'admin' && (
@@ -142,6 +144,11 @@ const AppLayout = () => {
           <Route path="/detail" element={
             <ProtectedRoute>
               <DetailPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/monthly-report" element={
+            <ProtectedRoute>
+              <MonthlyReportTable />
             </ProtectedRoute>
           } />
           <Route path="/sipd-cards" element={

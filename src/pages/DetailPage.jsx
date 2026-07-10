@@ -9,17 +9,23 @@ import BudgetFormModal from '../components/BudgetFormModal';
 import RealizationInputForm from '../components/RealizationInputForm';
 
 // Services & Utils
-import { getBudgetData, getFilterOptions, createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../services/api';
-import { processBudgetData, filterData, exportToXLSX, parseXLSXFile } from '../utils/helpers';
+import { getBudgetData, getFilterOptions, createBudgetItem, updateBudgetItem, deleteBudgetItem, addRealizationHistory, getAllRealizationHistory } from '../services/api';
+import { processBudgetData, filterData, exportToXLSX, parseXLSXFile, exportRealizationTemplate, parseRealizationXLSXFile } from '../utils/helpers';
+
+const getCurrentSemester = () => {
+  const month = new Date().getMonth();
+  return month < 6 ? 'Semester 1' : 'Semester 2';
+};
 
 const DetailPage = () => {
   // State management
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
+  const [historyData, setHistoryData] = useState([]);
   const [filterOptions, setFilterOptions] = useState({ semesters: [], bidangs: [] });
   const [currentFilters, setCurrentFilters] = useState({
-    semester: 'all',
+    semester: getCurrentSemester(),
     bidang: [],
     search: ''
   });
@@ -43,15 +49,24 @@ const DetailPage = () => {
       setLoading(true);
 
       // Load data and filter options
-      const [budgetResponse, filterResponse] = await Promise.all([
+      const [budgetResponse, filterResponse, historyResponse] = await Promise.all([
         getBudgetData(),
-        getFilterOptions()
+        getFilterOptions(),
+        getAllRealizationHistory()
       ]);
+
+      let currentHistoryData = [];
+      if (historyResponse.success) {
+        currentHistoryData = historyResponse.data;
+        setHistoryData(currentHistoryData);
+      }
 
       if (budgetResponse.success) {
         const processedData = processBudgetData(budgetResponse.data);
         setData(processedData);
-        setFilteredData(processedData);
+        // Apply filters with history data immediately
+        const initialFiltered = filterData(processedData, currentFilters, currentHistoryData);
+        setFilteredData(initialFiltered);
       }
 
       if (filterResponse.success) {
@@ -69,12 +84,21 @@ const DetailPage = () => {
   // Handle realization save
   const handleRealizationSave = async (realizationData) => {
     try {
-      // Update each belanja item with new realization
-      for (const belanjaItem of realizationData.belanja) {
-        await updateBudgetItem(belanjaItem.belanjaId, {
-          realisasi: belanjaItem.realisasi
-        });
+      if (realizationData.isImport) {
+        await loadData();
+        setShowRealizationForm(false);
+        return;
       }
+
+      // Prepare history data array
+      const historyDataArray = realizationData.belanja.map(b => ({
+          kode_rekening: b.kode_rekening,
+          jumlah_realisasi: b.jumlah_realisasi,
+          tanggal: b.tanggal,
+          uraian: b.uraian
+      }));
+
+      await addRealizationHistory(historyDataArray);
 
       // Reload data to reflect changes
       await loadData();
@@ -95,9 +119,9 @@ const DetailPage = () => {
     setCurrentFilters(filters);
 
     // Apply filters to data
-    const filtered = filterData(data, filters);
+    const filtered = filterData(data, filters, historyData);
     setFilteredData(filtered);
-  }, [data]);
+  }, [data, historyData]);
 
   // Handle table actions
   const handleView = (record) => {
@@ -164,7 +188,7 @@ const DetailPage = () => {
       setData(combinedData);
 
       // Manually re-apply filters to the newly combined data
-      const newlyFilteredData = filterData(combinedData, currentFilters);
+      const newlyFilteredData = filterData(combinedData, currentFilters, historyData);
       setFilteredData(newlyFilteredData);
 
       message.success({ content: `${parsedData.length} data berhasil diimpor!`, key, duration: 2 });
@@ -173,6 +197,51 @@ const DetailPage = () => {
     }
 
     // Return false to prevent default upload behavior
+    return false;
+  };
+
+  const handleDownloadRealizationTemplate = () => {
+    try {
+      exportRealizationTemplate();
+      message.success('Template realisasi berhasil diunduh.');
+    } catch (error) {
+      message.error('Gagal mengunduh template: ' + error.message);
+    }
+  };
+
+  const handleImportRealization = async (file) => {
+    if (!file) return false;
+
+    const key = 'import_realisasi';
+    message.loading({ content: 'Memproses file realisasi...', key });
+
+    try {
+      // 1. Parse Excel file
+      const parsedData = await parseRealizationXLSXFile(file);
+      
+      message.loading({ content: `Menyimpan ${parsedData.length} data realisasi ke database...`, key });
+
+      // 2. Save to database
+      const response = await addRealizationHistory(parsedData);
+      
+      if (response.success) {
+        if (response.data.failed > 0) {
+          message.warning({ 
+            content: `Berhasil import ${response.data.success} data. Gagal: ${response.data.failed}. Error pertama: ${response.data.errors[0]}`, 
+            key, 
+            duration: 6 
+          });
+        } else {
+          message.success({ content: `${response.data.success} data realisasi berhasil ditambahkan!`, key, duration: 3 });
+        }
+        
+        // 3. Reload data to show updated realization totals
+        loadData();
+      }
+    } catch (error) {
+      message.error({ content: `Gagal mengimpor realisasi: ${error.message}`, key, duration: 4 });
+    }
+
     return false;
   };
 
@@ -240,6 +309,28 @@ const DetailPage = () => {
             >
               Refresh
             </Button>
+            
+            <Button
+              icon={<FileExcelOutlined />}
+              onClick={handleDownloadRealizationTemplate}
+            >
+              Template Realisasi
+            </Button>
+
+            <Upload
+              name="file_realisasi"
+              accept=".xlsx, .xls"
+              showUploadList={false}
+              beforeUpload={handleImportRealization}
+              customRequest={({ file, onSuccess }) => {
+                setTimeout(() => { onSuccess("ok"); }, 0);
+              }}
+            >
+              <Button type="dashed" icon={<UploadOutlined />}>
+                Import Realisasi
+              </Button>
+            </Upload>
+
             <Upload
               name="file"
               accept=".xlsx, .xls"
@@ -252,7 +343,7 @@ const DetailPage = () => {
               }}
             >
               <Button icon={<UploadOutlined />}>
-                Import XLSX
+                Import Data SIPD
               </Button>
             </Upload>
 

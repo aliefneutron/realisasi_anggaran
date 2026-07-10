@@ -11,32 +11,41 @@ export const generateRealizationTemplate = (belanjaList, subKegiatanName = '') =
     const data = belanjaList.map(belanja => ({
         'Kode Rekening': belanja.kode_rekening,
         'Nama Belanja': belanja.name,
-        'Pagu': belanja.pagu,
-        'Realisasi': '', // Empty for user to fill
-        'Tanggal': '' // Optional
+        'Tanggal (DD-MM-YYYY)': '',
+        'Uraian': '',
+        'Jumlah Realisasi': '' 
     }));
 
-    // Create worksheet
-    const ws = XLSX.utils.json_to_sheet(data);
+    // Define explicit headers to ensure they appear even if data is empty
+    const headers = [
+        'Kode Rekening',
+        'Nama Belanja',
+        'Tanggal (DD-MM-YYYY)',
+        'Uraian',
+        'Jumlah Realisasi'
+    ];
+
+    // Create worksheet with explicit headers
+    const ws = XLSX.utils.json_to_sheet(data, { header: headers });
 
     // Set column widths
     ws['!cols'] = [
-        { wch: 20 }, // Kode Rekening
+        { wch: 25 }, // Kode Rekening
         { wch: 40 }, // Nama Belanja
-        { wch: 15 }, // Pagu
-        { wch: 15 }, // Realisasi
-        { wch: 12 }  // Tanggal
+        { wch: 20 }, // Tanggal
+        { wch: 40 }, // Uraian
+        { wch: 20 }  // Jumlah Realisasi
     ];
 
     // Create instructions sheet
     const instructions = [
         ['INSTRUKSI PENGGUNAAN TEMPLATE IMPORT REALISASI'],
         [''],
-        ['1. Isi kolom "Realisasi" dengan nilai realisasi anggaran'],
-        ['2. Kolom "Tanggal" bersifat opsional (format: DD/MM/YYYY)'],
-        ['3. JANGAN ubah kolom "Kode Rekening", "Nama Belanja", atau "Pagu"'],
-        ['4. Realisasi tidak boleh melebihi Pagu'],
-        ['5. Realisasi harus berupa angka positif'],
+        ['1. Isi kolom "Jumlah Realisasi" dengan nilai penambahan realisasi anggaran'],
+        ['2. Isi kolom "Tanggal (DD-MM-YYYY)" dengan tanggal realisasi (opsional, default: hari ini)'],
+        ['3. Isi kolom "Uraian" dengan rincian aktivitas (misal: "[-] Audit Maternal Perinatal")'],
+        ['4. JANGAN ubah kolom "Kode Rekening" atau "Nama Belanja"'],
+        ['5. Jumlah Realisasi harus berupa angka positif'],
         ['6. Simpan file dan upload kembali ke sistem'],
         [''],
         ['CATATAN:'],
@@ -102,22 +111,58 @@ export const parseRealizationExcel = (file) => {
 
                 // Parse and clean data
                 const parsedData = jsonData
-                    .map((row, index) => {
-                        // Skip rows without realisasi
-                        if (!row['Realisasi'] || row['Realisasi'] === '') {
+                    .map((rawRow, index) => {
+                        // Normalize keys (lowercase, trim spaces)
+                        const row = {};
+                        Object.keys(rawRow).forEach(k => {
+                            if (k) {
+                                row[k.toString().trim().toLowerCase()] = rawRow[k];
+                            }
+                        });
+
+                        // Find realisasi value
+                        const realisasiValue = row['jumlah realisasi'] || row['realisasi'] || row['jumlah'];
+                        if (realisasiValue === undefined || realisasiValue === null || realisasiValue === '') {
                             return null;
                         }
 
+                        // Clean up currency formatting (remove Rp, spaces, dots) and parse
+                        let cleanStr = realisasiValue.toString().replace(/Rp/gi, '').replace(/\./g, '').replace(/,/g, '.').trim();
+                        const parsedNum = parseFloat(cleanStr);
+                        const finalRealisasi = isNaN(parsedNum) ? 0 : parsedNum;
+
+                        let tanggalStr = new Date().toISOString().split('T')[0];
+                        const rawTanggal = row['tanggal (dd-mm-yyyy)'] || row['tanggal'];
+                        if (rawTanggal) {
+                            const strDate = rawTanggal.toString().trim();
+                            // Handle Excel serial date
+                            if (!isNaN(strDate) && Number(strDate) > 20000) {
+                                const dateObj = new Date(Math.round((Number(strDate) - 25569) * 86400 * 1000));
+                                const d = dateObj.getDate().toString().padStart(2, '0');
+                                const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                                const y = dateObj.getFullYear();
+                                tanggalStr = `${y}-${m}-${d}`;
+                            } else {
+                                const match = strDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+                                if (match) {
+                                    const d = match[1].padStart(2, '0');
+                                    const m = match[2].padStart(2, '0');
+                                    const y = match[3];
+                                    tanggalStr = `${y}-${m}-${d}`;
+                                }
+                            }
+                        }
+
                         return {
-                            rowNumber: index + 2, // +2 because Excel is 1-indexed and has header
-                            kode_rekening: row['Kode Rekening']?.toString().trim(),
-                            nama_belanja: row['Nama Belanja']?.toString().trim(),
-                            pagu: parseFloat(row['Pagu']) || 0,
-                            realisasi: parseFloat(row['Realisasi']) || 0,
-                            tanggal: row['Tanggal']?.toString().trim() || null
+                            rowNumber: index + 2,
+                            kode_rekening: (row['kode rekening'] || '').toString().trim(),
+                            nama_belanja: (row['nama belanja'] || '').toString().trim(),
+                            realisasi: finalRealisasi,
+                            tanggal: tanggalStr,
+                            uraian: (row['uraian'] || 'Input Realisasi Excel').toString().trim()
                         };
                     })
-                    .filter(item => item !== null); // Remove null entries
+                    .filter(item => item !== null && item.kode_rekening !== ''); // Remove null entries or empty codes
 
                 resolve(parsedData);
             } catch (error) {
@@ -174,11 +219,12 @@ export const validateRealizationData = (importedData, belanjaList) => {
             );
         }
 
-        // Validate date format if provided
+        // Validate date format if provided (DD-MM-YYYY or DD/MM/YYYY)
         if (item.tanggal) {
-            const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+            // Because we already transformed it to YYYY-MM-DD in the parser, we just check if it's a valid date string
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(item.tanggal)) {
-                validationErrors.push('Format tanggal tidak valid (gunakan DD/MM/YYYY)');
+                validationErrors.push('Format tanggal tidak valid (gunakan DD-MM-YYYY)');
             }
         }
 

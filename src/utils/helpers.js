@@ -154,20 +154,59 @@ export const calculateSummary = (data) => {
 };
 
 /**
- * Filter data based on criteria
+ * Filter data based on criteria and calculate dynamic realization based on semester
  * @param {Array} data - Data to filter
  * @param {Object} filters - Filter criteria
+ * @param {Array} historyData - Realization history data for dynamic calculation
  * @returns {Array} Filtered data
  */
-export const filterData = (data, filters) => {
+export const filterData = (data, filters, historyData = []) => {
   if (!Array.isArray(data)) return [];
   
-  return data.filter(item => {
-    // Semester filter
-    if (filters.semester && filters.semester !== 'all') {
-      if (item.semester !== filters.semester) return false;
+  // Create a map of kode_rekening -> dynamically calculated realisasi
+  const realizationMap = {};
+  
+  if (historyData && historyData.length > 0 && filters.semester && filters.semester !== 'all') {
+    historyData.forEach(record => {
+      if (!record.tanggal) return;
+      const month = new Date(record.tanggal).getMonth(); // 0-indexed (Jan=0, Dec=11)
+      
+      let includeRecord = false;
+      if (filters.semester === 'Semester 1') {
+        includeRecord = month < 6; // Jan - Jun
+      } else if (filters.semester === 'Semester 2') {
+        includeRecord = true; // Jan - Dec (cumulative)
+      }
+      
+      if (includeRecord) {
+        if (!realizationMap[record.kode_rekening]) {
+          realizationMap[record.kode_rekening] = 0;
+        }
+        realizationMap[record.kode_rekening] += (parseFloat(record.jumlah_realisasi) || 0);
+      }
+    });
+  }
+  
+  return data.map(item => {
+    // If semester filter is active and historyData is provided, override the realisasi value
+    if (filters.semester && filters.semester !== 'all' && historyData && historyData.length > 0) {
+      const newRealisasi = realizationMap[item.kode_rekening] || 0;
+      const newSisa = calculateSisa(item.pagu, newRealisasi);
+      const newPercentage = calculatePercentage(newRealisasi, item.pagu);
+      const newStatus = getStatus(newPercentage);
+      
+      return {
+        ...item,
+        realisasi: newRealisasi,
+        sisa: newSisa,
+        percentage: Math.round(newPercentage * 100) / 100,
+        status: newStatus,
+        statusLabel: getStatusLabel(newStatus),
+        statusColor: getStatusColor(newStatus)
+      };
     }
-    
+    return item;
+  }).filter(item => {
     // Bidang filter
     if (filters.bidang && filters.bidang.length > 0) {
       if (!filters.bidang.includes(item.bidang)) return false;
@@ -373,3 +412,118 @@ export const exportToXLSX = (data, filename = 'budget_data.xlsx') => {
 
   XLSX.writeFile(wb, filename);
 };
+
+/**
+ * Generate and download Realization Import Template
+ */
+export const exportRealizationTemplate = () => {
+  const headers = [
+    'Kode Rekening',
+    'Tanggal (DD-MM-YYYY)',
+    'Jumlah Realisasi'
+  ];
+
+  const data = [
+    {
+      'Kode Rekening': '1.02.01.2.01.0001.5.1.02.01.01.0004',
+      'Tanggal (DD-MM-YYYY)': '15-07-2025',
+      'Jumlah Realisasi': 1500000
+    },
+    {
+      'Kode Rekening': '1.02.01.2.01.0001.5.1.02.01.01.0024',
+      'Tanggal (DD-MM-YYYY)': '16-07-2025',
+      'Jumlah Realisasi': 500000
+    }
+  ];
+
+  const ws = XLSX.utils.json_to_sheet(data, { header: headers });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Template Realisasi');
+
+  ws['!cols'] = [
+    { wch: 35 }, // Kode Rekening
+    { wch: 25 }, // Tanggal
+    { wch: 20 }, // Jumlah Realisasi
+  ];
+
+  XLSX.writeFile(wb, 'template_import_realisasi.xlsx');
+};
+
+/**
+ * Parses a Realization XLSX file and converts it to a structured JSON array.
+ * @param {File} file - The file to parse.
+ * @returns {Promise<Array>} A promise that resolves with the parsed data.
+ */
+export const parseRealizationXLSXFile = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        if (json.length === 0) {
+          return reject(new Error('File XLSX kosong atau format tidak sesuai.'));
+        }
+
+        // We flexibly check for required keys
+        const requiredHeaders = ['Kode Rekening', 'Uraian', 'Jumlah Realisasi'];
+        const fileHeaders = Object.keys(json[0]);
+        
+        // Let's do a more flexible matching for headers since users might slightly change them
+        const findHeader = (target) => {
+           return fileHeaders.find(h => h.toLowerCase().includes(target.toLowerCase()));
+        };
+
+        const kodeHeader = findHeader('Kode');
+        const tanggalHeader = findHeader('Tanggal');
+        const uraianHeader = findHeader('Uraian'); // Now optional
+        const jumlahHeader = findHeader('Jumlah') || findHeader('Realisasi');
+
+        if (!kodeHeader || !jumlahHeader) {
+          return reject(new Error('Format kolom tidak sesuai. Pastikan ada kolom Kode Rekening dan Jumlah Realisasi.'));
+        }
+
+        // Map to standard structure
+        const parsedData = json.map((row) => {
+          let tanggalStr = new Date().toISOString().split('T')[0]; // Default today YYYY-MM-DD
+          
+          const rawDate = row[tanggalHeader];
+          if (rawDate) {
+             const strDate = rawDate.toString().trim();
+             // Parse DD-MM-YYYY to YYYY-MM-DD
+             const match = strDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+             if (match) {
+                 const d = match[1].padStart(2, '0');
+                 const m = match[2].padStart(2, '0');
+                 const y = match[3];
+                 tanggalStr = `${y}-${m}-${d}`;
+             }
+          }
+
+          return {
+            kode_rekening: row[kodeHeader]?.toString().trim(),
+            tanggal: tanggalStr,
+            uraian: (uraianHeader && row[uraianHeader]) ? row[uraianHeader].toString().trim() : 'Input Realisasi Excel',
+            jumlah_realisasi: parseFloat(row[jumlahHeader]) || 0
+          };
+        }).filter(row => row.kode_rekening && row.jumlah_realisasi > 0);
+
+        resolve(parsedData);
+      } catch (error) {
+        reject(new Error('Gagal memproses file XLSX. Pastikan format file benar.'));
+      }
+    };
+
+    reader.onerror = (error) => {
+      reject(new Error('Gagal membaca file: ' + error));
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
+};
+

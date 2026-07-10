@@ -24,7 +24,7 @@ import {
     DownloadOutlined,
     UploadOutlined
 } from '@ant-design/icons';
-import { getHierarchicalData } from '../services/api';
+import { getHierarchicalData, addRealizationHistory } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ImportPreviewModal from './ImportPreviewModal';
 import {
@@ -120,19 +120,26 @@ const RealizationInputForm = ({ onSave }) => {
                                     belanjaList: []
                                 };
 
-                                // Extract belanja children
-                                if (child.children) {
-                                    child.children.forEach(belanja => {
-                                        if (belanja.level === 'belanja') {
+                                // Extract belanja children recursively
+                                const extractDeepBelanja = (nodes) => {
+                                    nodes.forEach(node => {
+                                        if (node.level === 'belanja') {
                                             subKegiatanItem.belanjaList.push({
-                                                id: belanja.id,
-                                                name: belanja.name,
-                                                kode_rekening: belanja.kode_rekening,
-                                                pagu: belanja.pagu || 0,
-                                                realisasi: belanja.realisasi || 0
+                                                id: node.id,
+                                                name: node.name,
+                                                kode_rekening: node.kode_rekening,
+                                                pagu: node.pagu || 0,
+                                                realisasi: node.realisasi || 0
                                             });
                                         }
+                                        if (node.children) {
+                                            extractDeepBelanja(node.children);
+                                        }
                                     });
+                                };
+
+                                if (child.children) {
+                                    extractDeepBelanja(child.children);
                                 }
 
                                 kegiatanItem.subKegiatanList.push(subKegiatanItem);
@@ -198,12 +205,16 @@ const RealizationInputForm = ({ onSave }) => {
 
             // Prepare data to save
             const realizationData = {
-                kegiatanId: selectedKegiatan.id,
-                subKegiatanId: selectedSubKegiatan.id,
-                belanja: Object.entries(realizationInputs).map(([belanjaId, realisasi]) => ({
-                    belanjaId,
-                    realisasi
-                })).filter(item => item.realisasi > 0)
+                isImport: false,
+                belanja: Object.entries(realizationInputs).map(([belanjaId, realisasi]) => {
+                    const belanjaObj = belanjaList.find(b => b.id === belanjaId);
+                    return {
+                        kode_rekening: belanjaObj ? belanjaObj.kode_rekening : '',
+                        jumlah_realisasi: realisasi,
+                        tanggal: new Date().toISOString().split('T')[0],
+                        uraian: 'Input Manual dari Sistem'
+                    };
+                }).filter(item => item.jumlah_realisasi > 0)
             };
 
             if (realizationData.belanja.length === 0) {
@@ -310,23 +321,33 @@ const RealizationInputForm = ({ onSave }) => {
     };
 
     // Handle confirm import from preview modal
-    const handleConfirmImport = () => {
+    const handleConfirmImport = async () => {
         try {
+            setImportLoading(true);
             const { valid } = validationResult;
 
-            // Apply imported data to realizationInputs
-            const newInputs = { ...realizationInputs };
-            valid.forEach(item => {
-                newInputs[item.belanjaId] = item.realisasi;
-            });
+            const historyToSave = valid.map(item => ({
+                kode_rekening: item.kode_rekening,
+                tanggal: item.tanggal,
+                uraian: item.uraian,
+                jumlah_realisasi: item.realisasi
+            }));
 
-            setRealizationInputs(newInputs);
-            setImportModalVisible(false);
-
-            message.success(`Berhasil import ${valid.length} data realisasi!`);
+            const response = await addRealizationHistory(historyToSave);
+            
+            if (response.success) {
+                setImportModalVisible(false);
+                message.success(`Berhasil import ${response.data.success} data realisasi!`);
+                handleReset();
+                if (onSave) {
+                    await onSave({ isImport: true });
+                }
+            }
         } catch (error) {
             message.error('Gagal mengimport data');
             console.error(error);
+        } finally {
+            setImportLoading(false);
         }
     };
 
