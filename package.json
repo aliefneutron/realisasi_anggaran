@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Aplikasi Monitoring Anggaran - Budget Monitoring Dashboard",
   "private": true,
-  "homepage": "https://aliefneutron.github.io/realisasi_anggaran",
+  "homepage": ".",
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
     "@testing-library/jest-dom": "^5.16.4",
