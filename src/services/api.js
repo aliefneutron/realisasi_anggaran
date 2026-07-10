@@ -140,7 +140,7 @@ const getFlattenedBudgetItems = () => {
  */
 export const getBudgetData = async (params = {}) => {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (true || process.env.NODE_ENV === 'development') {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       let filteredData = getFlattenedBudgetItems();
@@ -184,7 +184,7 @@ export const getBudgetData = async (params = {}) => {
  */
 export const getHierarchicalData = async () => {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (true || process.env.NODE_ENV === 'development') {
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Apply role-based filtering
@@ -207,7 +207,7 @@ export const getHierarchicalData = async () => {
  */
 export const updateHierarchicalData = async (newData) => {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (true || process.env.NODE_ENV === 'development') {
       await new Promise(resolve => setTimeout(resolve, 300));
       currentHierarchicalData = newData;
       return {
@@ -228,7 +228,7 @@ export const updateHierarchicalData = async (newData) => {
  */
 export const getPuskesmasData = async () => {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (true || process.env.NODE_ENV === 'development') {
       await new Promise(resolve => setTimeout(resolve, 300));
       return {
         success: true,
@@ -247,7 +247,7 @@ export const getPuskesmasData = async () => {
  */
 export const getBudgetById = async (id) => {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (true || process.env.NODE_ENV === 'development') {
       await new Promise(resolve => setTimeout(resolve, 300));
       const allItems = getFlattenedBudgetItems();
       const item = allItems.find(item => item.id === id);
@@ -287,7 +287,7 @@ export const createBudgetItem = async (budgetData) => {
  */
 export const updateBudgetItem = async (id, budgetData) => {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (true || process.env.NODE_ENV === 'development') {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Recursive update in hierarchy
@@ -330,7 +330,7 @@ export const updateBudgetItem = async (id, budgetData) => {
  */
 export const deleteBudgetItem = async (id) => {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (true || process.env.NODE_ENV === 'development') {
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Recursive delete
@@ -363,7 +363,7 @@ export const deleteBudgetItem = async (id) => {
  */
 export const getFilterOptions = async () => {
   try {
-    if (process.env.NODE_ENV === 'development') {
+    if (true || process.env.NODE_ENV === 'development') {
       await new Promise(resolve => setTimeout(resolve, 200));
 
       let flatData = getFlattenedBudgetItems();
