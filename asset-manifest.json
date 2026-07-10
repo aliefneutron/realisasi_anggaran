@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/realisasi_anggaran/static/css/main.2e81fc41.css",
+    "main.js": "/realisasi_anggaran/static/js/main.1c83656e.js",
+    "index.html": "/realisasi_anggaran/index.html",
+    "main.2e81fc41.css.map": "/realisasi_anggaran/static/css/main.2e81fc41.css.map",
+    "main.1c83656e.js.map": "/realisasi_anggaran/static/js/main.1c83656e.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.2e81fc41.css",
+    "static/js/main.1c83656e.js"
+  ]
+}
