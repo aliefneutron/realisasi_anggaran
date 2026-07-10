@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Aplikasi Monitoring Anggaran - Budget Monitoring Dashboard",
   "private": true,
+  "homepage": "https://aliefneutron.github.io/realisasi_anggaran",
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
     "@testing-library/jest-dom": "^5.16.4",
@@ -23,9 +24,11 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "cross-env CI=false react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "eslintConfig": {
     "extends": [
@@ -46,6 +49,8 @@
     ]
   },
   "devDependencies": {
-    "@types/lodash": "^4.14.182"
+    "@types/lodash": "^4.14.182",
+    "cross-env": "^10.1.0",
+    "gh-pages": "^6.3.0"
   }
 }
