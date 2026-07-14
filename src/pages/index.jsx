@@ -80,9 +80,13 @@ const HomePage = () => {
         setFilteredData(initialFiltered);
         
         const baseSummary = calculateSummary(initialFiltered);
+        const hasTimeFilter = (currentFilters.semester && currentFilters.semester !== 'all') || (currentFilters.bulan && currentFilters.bulan !== 'all');
+        
         if (loadedExactTotals['DINKES_INDUK']) {
           baseSummary.totalPagu = loadedExactTotals['DINKES_INDUK'].pagu;
-          baseSummary.totalRealisasi = loadedExactTotals['DINKES_INDUK'].realisasi;
+          if (!hasTimeFilter) {
+            baseSummary.totalRealisasi = loadedExactTotals['DINKES_INDUK'].realisasi;
+          }
           baseSummary.totalSisa = baseSummary.totalPagu - baseSummary.totalRealisasi;
           baseSummary.averagePercentage = baseSummary.totalPagu > 0 ? (baseSummary.totalRealisasi / baseSummary.totalPagu) * 100 : 0;
         }
@@ -111,19 +115,25 @@ const HomePage = () => {
     
     const newSummary = calculateSummary(filtered);
     
+    const hasTimeFilter = (filters.semester && filters.semester !== 'all') || (filters.bulan && filters.bulan !== 'all');
+    
     // Override totals if specific Bidang is selected, or if 'all' is selected
     if (filters.bidang && filters.bidang.length === 1) {
       const selectedBidang = filters.bidang[0];
       if (exactTotals[selectedBidang]) {
         newSummary.totalPagu = exactTotals[selectedBidang].pagu;
-        newSummary.totalRealisasi = exactTotals[selectedBidang].realisasi;
+        if (!hasTimeFilter) {
+          newSummary.totalRealisasi = exactTotals[selectedBidang].realisasi;
+        }
         newSummary.totalSisa = newSummary.totalPagu - newSummary.totalRealisasi;
         newSummary.averagePercentage = newSummary.totalPagu > 0 ? (newSummary.totalRealisasi / newSummary.totalPagu) * 100 : 0;
       }
     } else if (!filters.bidang || filters.bidang.length === 0) {
       if (exactTotals['DINKES_INDUK']) {
         newSummary.totalPagu = exactTotals['DINKES_INDUK'].pagu;
-        newSummary.totalRealisasi = exactTotals['DINKES_INDUK'].realisasi;
+        if (!hasTimeFilter) {
+          newSummary.totalRealisasi = exactTotals['DINKES_INDUK'].realisasi;
+        }
         newSummary.totalSisa = newSummary.totalPagu - newSummary.totalRealisasi;
         newSummary.averagePercentage = newSummary.totalPagu > 0 ? (newSummary.totalRealisasi / newSummary.totalPagu) * 100 : 0;
       }
