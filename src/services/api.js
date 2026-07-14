@@ -87,24 +87,27 @@ const buildHierarchy = (items) => {
   
   // First pass: Create all nodes and put them in map
   items.forEach(item => {
-      nodeMap[item.kode_rekening] = {
-          id: item.id, // Firestore ID
+      nodeMap[item.id_unik] = {
+          id: item.id_unik, // Use id_unik as internal ID
+          docId: item.id, // Firestore ID
           name: item.nama_kegiatan,
           pagu: item.pagu,
           realisasi: item.realisasi,
           level: item.level,
           bidang: item.bidang || 'Umum',
           kode_rekening: item.kode_rekening,
+          id_unik: item.id_unik,
+          parent_id_unik: item.parent_id_unik,
           children: []
       };
   });
 
   // Second pass: Link children to parents
   items.forEach(item => {
-      const node = nodeMap[item.kode_rekening];
+      const node = nodeMap[item.id_unik];
       
-      if (item.parent_kode && nodeMap[item.parent_kode]) {
-          nodeMap[item.parent_kode].children.push(node);
+      if (item.parent_id_unik && nodeMap[item.parent_id_unik]) {
+          nodeMap[item.parent_id_unik].children.push(node);
       } else if (item.level === 'program') {
           // Group programs under their Bidang
           if (!bidangMap[node.bidang]) {
@@ -256,26 +259,22 @@ export const addRealizationHistory = async (realizationDataArray) => {
   try {
     const results = { success: 0, failed: 0, errors: [] };
     
-    // Gunakan cache untuk mapping kode_rekening -> document ID
-    const cachedItems = await getCachedBudgetItems();
-    const budgetItems = {};
-    cachedItems.forEach(item => {
-      if (item.kode_rekening) {
-        budgetItems[item.kode_rekening] = item;
-      }
-    });
+    // Gunakan cache untuk mapping
+    const budgetItems = await getCachedBudgetItems();
 
     for (const item of realizationDataArray) {
       try {
-        const budgetItem = budgetItems[item.kode_rekening];
+        const budgetItem = budgetItems.find(i => i.id_unik === item.id_unik);
+        
         if (!budgetItem) {
-          throw new Error(`Kode Rekening ${item.kode_rekening} tidak ditemukan di database.`);
+          throw new Error(`Budget item not found for id_unik: ${item.id_unik}`);
         }
 
-        // 1. Save to history
+        // Simpan ke Firestore
         await addDoc(collection(db, 'realisasi_history'), {
-          budget_item_id: budgetItem.id,
-          kode_rekening: item.kode_rekening,
+            budget_item_id: budgetItem.id, // Firestore doc ID
+            id_unik: item.id_unik,
+            kode_rekening: item.kode_rekening,
           tanggal: item.tanggal,
           uraian: item.uraian,
           jumlah_realisasi: item.jumlah_realisasi,

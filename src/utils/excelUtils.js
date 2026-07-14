@@ -231,6 +231,7 @@ export const validateRealizationData = (importedData, belanjaList) => {
         if (validationErrors.length === 0) {
             valid.push({
                 ...item,
+                id_unik: belanjaItem.id_unik, // Include id_unik for backend
                 belanjaId: belanjaItem.id,
                 belanja: belanjaItem
             });

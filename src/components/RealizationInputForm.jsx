@@ -126,6 +126,7 @@ const RealizationInputForm = ({ onSave }) => {
                                         if (node.level === 'belanja') {
                                             subKegiatanItem.belanjaList.push({
                                                 id: node.id,
+                                                id_unik: node.id_unik || node.id, // Fallback to id just in case
                                                 name: node.name,
                                                 kode_rekening: node.kode_rekening,
                                                 pagu: node.pagu || 0,
@@ -209,6 +210,7 @@ const RealizationInputForm = ({ onSave }) => {
                 belanja: Object.entries(realizationInputs).map(([belanjaId, realisasi]) => {
                     const belanjaObj = belanjaList.find(b => b.id === belanjaId);
                     return {
+                        id_unik: belanjaObj ? belanjaObj.id_unik : '',
                         kode_rekening: belanjaObj ? belanjaObj.kode_rekening : '',
                         jumlah_realisasi: realisasi,
                         tanggal: new Date().toISOString().split('T')[0],
@@ -327,6 +329,7 @@ const RealizationInputForm = ({ onSave }) => {
             const { valid } = validationResult;
 
             const historyToSave = valid.map(item => ({
+                id_unik: item.id_unik,
                 kode_rekening: item.kode_rekening,
                 tanggal: item.tanggal,
                 uraian: item.uraian,

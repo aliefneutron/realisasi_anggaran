@@ -163,16 +163,16 @@ export const calculateSummary = (data) => {
 export const filterData = (data, filters, historyData = []) => {
   if (!Array.isArray(data)) return [];
   
-  // Create a map of kode_rekening -> dynamically calculated realisasi
+  // Create a map of id_unik -> dynamically calculated realisasi
   const realizationMap = {};
   
   const hasTimeFilter = (filters.semester && filters.semester !== 'all') || (filters.bulan && filters.bulan !== 'all');
   
   if (historyData && historyData.length > 0 && hasTimeFilter) {
-    // Build a lookup for parent tracking
+    // Build a lookup for parent tracking using id_unik
     const parentMap = {};
     data.forEach(item => {
-      parentMap[item.kode_rekening] = item.parent_kode;
+      parentMap[item.id_unik] = item.parent_id_unik;
     });
 
     historyData.forEach(record => {
@@ -190,17 +190,17 @@ export const filterData = (data, filters, historyData = []) => {
       }
       
       if (includeRecord) {
-        let currentKode = record.kode_rekening;
+        let currentId = record.id_unik;
         const amount = parseFloat(record.jumlah_realisasi) || 0;
         
         // Traverse up the tree using parentMap to aggregate totals for parent nodes
-        while (currentKode) {
-          if (!realizationMap[currentKode]) {
-            realizationMap[currentKode] = 0;
+        while (currentId) {
+          if (!realizationMap[currentId]) {
+            realizationMap[currentId] = 0;
           }
-          realizationMap[currentKode] += amount;
+          realizationMap[currentId] += amount;
           
-          currentKode = parentMap[currentKode]; // Move to parent
+          currentId = parentMap[currentId]; // Move to parent
         }
       }
     });
@@ -209,7 +209,7 @@ export const filterData = (data, filters, historyData = []) => {
   return data.map(item => {
     // If time filter is active and historyData is provided, override the realisasi value
     if (hasTimeFilter && historyData && historyData.length > 0) {
-      const newRealisasi = realizationMap[item.kode_rekening] || 0;
+      const newRealisasi = realizationMap[item.id_unik] || 0;
       const newSisa = calculateSisa(item.pagu, newRealisasi);
       const newPercentage = calculatePercentage(newRealisasi, item.pagu);
       const newStatus = getStatus(newPercentage);
