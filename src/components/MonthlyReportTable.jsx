@@ -290,7 +290,7 @@ const MonthlyReportTable = () => {
     <Card 
       title={
         <Space>
-          <Title level={4} style={{ margin: 0 }}>Jadwal & Laporan Realisasi Bulanan</Title>
+          <Title level={4} style={{ margin: 0 }}>Laporan Realisasi Bulanan</Title>
         </Space>
       }
       extra={
@@ -320,15 +320,7 @@ const MonthlyReportTable = () => {
         dataSource={tableData}
         loading={{ spinning: loading, tip: loadingTip }}
         rowKey="key"
-        pagination={{
-          current: currentPage,
-          pageSize: PAGE_SIZE,
-          total: tableData.length,
-          onChange: (page) => setCurrentPage(page),
-          showSizeChanger: false,
-          showTotal: (total, range) => `${range[0]}-${range[1]} dari ${total} baris`,
-          size: 'small',
-        }}
+        pagination={false}
         scroll={{ x: 2000, y: 550 }}
         size="small"
         rowClassName={(record) => record.isSubKegiatan ? 'subkeg-row' : 'belanja-row'}

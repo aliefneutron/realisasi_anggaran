@@ -108,11 +108,43 @@ export const getBidangByKodeRekening = (kodeRekening) => {
     const subKegiatanPrefix = kodeRekening.length >= 17 ? kodeRekening.substring(0, 17) : kodeRekening;
 
     for (const [bidang, kodes] of Object.entries(bidangMapping)) {
-        if (kodes.includes(subKegiatanPrefix)) {
-            return bidang;
+        if (kodeRekening.length < 17) {
+            // For shorter codes (like Kegiatan or Program), check if any mapped code starts with it
+            if (kodes.some(k => k.startsWith(kodeRekening))) {
+                return bidang;
+            }
+        } else {
+            if (kodes.includes(subKegiatanPrefix)) {
+                return bidang;
+            }
         }
     }
     return "Umum";
+};
+
+/**
+ * Returns an array of Bidang names based on the provided kode rekening.
+ * This is useful for Kegiatan that might overlap across multiple Bidangs.
+ */
+export const getBidangsForKodeRekening = (kodeRekening) => {
+    if (!kodeRekening) return ["Umum"];
+    
+    const bidangs = [];
+    const subKegiatanPrefix = kodeRekening.length >= 17 ? kodeRekening.substring(0, 17) : kodeRekening;
+
+    for (const [bidang, kodes] of Object.entries(bidangMapping)) {
+        if (kodeRekening.length < 17) {
+            if (kodes.some(k => k.startsWith(kodeRekening))) {
+                bidangs.push(bidang);
+            }
+        } else {
+            if (kodes.includes(subKegiatanPrefix)) {
+                bidangs.push(bidang);
+            }
+        }
+    }
+    
+    return bidangs.length > 0 ? bidangs : ["Umum"];
 };
 
 /**

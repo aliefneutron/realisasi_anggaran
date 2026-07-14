@@ -301,9 +301,6 @@ const HierarchicalDashboard = () => {
             <DashboardOutlined /> Monitoring Anggaran - Dashboard Hierarki
           </h1>
           <div className="header-actions">
-            <button className="btn-secondary">
-              <ExportOutlined /> Export Data
-            </button>
             <button className="btn-primary" onClick={handleAddData}>
               <PlusOutlined /> Tambah Data
             </button>
@@ -462,10 +459,6 @@ const HierarchicalDashboard = () => {
               <button className="quick-action-btn">
                 <span className="action-icon"><LineChartOutlined /></span>
                 <span className="action-text">Analisis Trend</span>
-              </button>
-              <button className="quick-action-btn">
-                <span className="action-icon"><DownloadOutlined /></span>
-                <span className="action-text">Export Excel</span>
               </button>
               <button className="quick-action-btn">
                 <span className="action-icon"><SettingOutlined /></span>

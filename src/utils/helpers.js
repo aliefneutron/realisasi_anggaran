@@ -189,9 +189,13 @@ export const calculateSummary = (data) => {
       underBudgetCount: 0
     };
   }
+  // The user requested to ONLY sum "Detail Belanja" (kode rekening 14-15 digit, level: 'belanja')
+  // We filter out all other levels so they are not included in the total card calculation.
+  const leafNodes = data.filter(item => item.level === 'belanja');
+  const dataToSum = leafNodes.length > 0 ? leafNodes : data;
   
-  const totalPagu = data.reduce((sum, item) => sum + (item.pagu || 0), 0);
-  const totalRealisasi = data.reduce((sum, item) => sum + (item.realisasi || 0), 0);
+  const totalPagu = dataToSum.reduce((sum, item) => sum + (item.pagu || 0), 0);
+  const totalRealisasi = dataToSum.reduce((sum, item) => sum + (item.realisasi || 0), 0);
   const totalSisa = totalPagu - totalRealisasi;
   const averagePercentage = totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
   
@@ -268,13 +272,25 @@ export const filterData = (data, filters, historyData = []) => {
   return data.map(item => {
     let newItem = { ...item };
     
-    if (filters.semester && filters.semester !== 'all') {
-      newItem.semester = filters.semester;
-    }
+    // If time filter is active and it's a SPECIFIC month, we could use history.
+    // However, the user clarified that Column K (base item.realisasi) is the data up to June.
+    // So we will just use the base item.pagu and item.realisasi directly for all Semester views.
     
-    // If time filter is active, calculate from history. If no history, it's 0.
-    if (hasTimeFilter) {
-      const newRealisasi = realizationMap[item.id_unik] || 0;
+    if (hasTimeFilter && filters.bulan && filters.bulan !== 'all') {
+      const selectedMonth = parseInt(filters.bulan, 10);
+      let newRealisasi = 0;
+      
+      // Kategori Semester 1 (Januari - Juni: 0 - 5)
+      // Jika bulan masuk Semester 1 (atau sampai Juli sesuai request, kita set <= 6 atau < 6)
+      // Karena user menyebut "masuk kategori semester 1", kita set < 6 (Jan-Jun)
+      // Namun karena disebutkan "data realisasi sampai bulan juli", kita beri toleransi sampai Juli (6) jika diperlukan, 
+      // tetapi untuk amannya kita patuhi "kategori semester 1" (0-5) dan tampilkan realisasi yang ada.
+      if (selectedMonth < 6) {
+        newRealisasi = item.realisasi;
+      } else {
+        newRealisasi = 0; // Semester 2 dikosongkan
+      }
+      
       const newSisa = calculateSisa(item.pagu, newRealisasi);
       const newPercentage = calculatePercentage(newRealisasi, item.pagu);
       const newStatus = getStatus(newPercentage);

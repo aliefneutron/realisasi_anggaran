@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Table, 
   Card, 
@@ -35,6 +35,8 @@ const BudgetTable = ({
   size = 'default'
 }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   // Handle row selection
   const rowSelection = {
@@ -101,20 +103,17 @@ const BudgetTable = ({
       title: 'Nama Kegiatan',
       dataIndex: 'nama_kegiatan',
       key: 'nama_kegiatan',
-      width: 250,
+      width: 300, // Slightly wider to accommodate wrapped text better
       fixed: 'left',
-      ellipsis: {
-        showTitle: false,
-      },
       render: (text) => (
-        <Tooltip placement="topLeft" title={text}>
-          <div style={{ 
-            fontWeight: 500,
-            color: '#333'
-          }}>
-            {text}
-          </div>
-        </Tooltip>
+        <div style={{ 
+          fontWeight: 500,
+          color: '#333',
+          whiteSpace: 'normal',
+          wordWrap: 'break-word'
+        }}>
+          {text}
+        </div>
       ),
     },
     {
@@ -280,68 +279,131 @@ const BudgetTable = ({
               onClick={() => onView && onView(record)}
             />
           </Tooltip>
-          <Tooltip title="Edit">
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              size="small"
-              onClick={() => onEdit && onEdit(record)}
-            />
-          </Tooltip>
-          <Tooltip title="Hapus">
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-              size="small"
-              onClick={() => {
-                Modal.confirm({
-                  title: 'Konfirmasi Hapus',
-                  content: `Apakah Anda yakin ingin menghapus "${record.nama_kegiatan}"?`,
-                  okText: 'Ya, Hapus',
-                  cancelText: 'Batal',
-                  okType: 'danger',
-                  onOk: () => onDelete && onDelete(record.id)
-                });
-              }}
-            />
-          </Tooltip>
+          {/* Removed Edit and Hapus buttons as requested */}
         </Space>
       ),
     });
   }
 
+  // Create tree structure for hierarchical display
+  const treeData = React.useMemo(() => {
+    if (!data || data.length === 0) return [];
+    
+    const itemsMap = {};
+    const roots = [];
+    
+    // Initialize map with deep copy to avoid mutating props
+    data.forEach(item => {
+      itemsMap[item.id_unik] = { ...item, children: [] };
+    });
+    
+    // Build tree
+    data.forEach(item => {
+      let parentId = null;
+      if (item.level === 'belanja') {
+        parentId = item.parent_id_unik; // Parent is belanja_rincian_objek
+      } else if (item.level === 'belanja_rincian_objek') {
+        // ID format: "sub_kegiatan_id-belanja_kode"
+        const parts = item.id_unik.split('-');
+        parentId = parts[0]; // Parent is sub_kegiatan
+      }
+      
+      if (parentId && itemsMap[parentId]) {
+        itemsMap[parentId].children.push(itemsMap[item.id_unik]);
+      } else {
+        roots.push(itemsMap[item.id_unik]);
+      }
+    });
+    
+    // Cleanup empty children arrays
+    Object.values(itemsMap).forEach(item => {
+      if (item.children && item.children.length === 0) {
+        delete item.children;
+      }
+    });
+    
+    return roots;
+  }, [data]);
+
+  // Auto-scroll to next/prev page logic
+  useEffect(() => {
+    if (!pagination) return;
+
+    let isThrottled = false;
+    // Use a small timeout to ensure the table body is in the DOM
+    const timer = setTimeout(() => {
+      const tableBody = document.querySelector('.budget-table-card .ant-table-body');
+      if (!tableBody) return;
+
+      const changePage = (direction) => {
+        if (isThrottled) return;
+        
+        setCurrentPage(prevPage => {
+          const maxPage = Math.ceil(treeData.length / pageSize);
+          let newPage = prevPage;
+          
+          if (direction === 'next' && prevPage < maxPage) {
+            newPage = prevPage + 1;
+          } else if (direction === 'prev' && prevPage > 1) {
+            newPage = prevPage - 1;
+          }
+          
+          if (newPage !== prevPage) {
+            isThrottled = true;
+            // Unthrottle after 1 second to prevent flying through pages
+            setTimeout(() => isThrottled = false, 1000);
+          }
+          return newPage;
+        });
+      };
+
+      const handleScroll = (e) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.target;
+        // Check if we hit the bottom (with a small 10px buffer)
+        if (Math.ceil(scrollTop + clientHeight) >= scrollHeight - 10) {
+          changePage('next');
+        }
+      };
+
+      const handleWheel = (e) => {
+        const { scrollTop, scrollHeight, clientHeight } = tableBody;
+        
+        // User scrolls UP and is at the very top of the table
+        if (e.deltaY < 0 && scrollTop <= 0) {
+          changePage('prev');
+        }
+        
+        // User scrolls DOWN and is at the very bottom (or there is no scrollbar)
+        if (e.deltaY > 0 && Math.ceil(scrollTop + clientHeight) >= scrollHeight - 10) {
+          changePage('next');
+        }
+      };
+
+      tableBody.addEventListener('scroll', handleScroll);
+      tableBody.addEventListener('wheel', handleWheel);
+      
+      return () => {
+        tableBody.removeEventListener('scroll', handleScroll);
+        tableBody.removeEventListener('wheel', handleWheel);
+      };
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [pagination, pageSize, treeData.length]);
+
   return (
     <Card 
-      className="table-container"
+      className="budget-table-card" 
       title={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span className="table-title">Data Detail Anggaran</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ width: 4, height: 24, background: '#1890ff', marginRight: 12, borderRadius: 2 }}></div>
+          Data Detail Anggaran
+        </div>
+      }
+      extra={
+        <div className="table-actions">
           <Space>
-            {selectedRowKeys.length > 0 && (
-              <>
-                <span style={{ fontSize: '12px', color: '#666' }}>
-                  {selectedRowKeys.length} item dipilih
-                </span>
-                <Button
-                  type="primary"
-                  danger
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  onClick={handleBulkDelete}
-                >
-                  Hapus Terpilih
-                </Button>
-              </>
-            )}
-            <Button
-              type="primary"
-              icon={<FileExcelOutlined />}
-              onClick={handleExport}
-              size="small"
-            >
-              Export XLSX
-            </Button>
+            {/* Removed bulk delete button as requested */}
           </Space>
         </div>
       }
@@ -350,32 +412,44 @@ const BudgetTable = ({
       <Table
         rowSelection={rowSelection}
         columns={columns}
-        dataSource={data}
+        dataSource={treeData}
         loading={loading}
         rowKey="id"
         size={size}
         scroll={{ x: 1200, y: 400 }}
         pagination={pagination ? {
+          current: currentPage,
+          pageSize: pageSize,
+          onChange: (page, size) => {
+            setCurrentPage(page);
+            if (size !== pageSize) setPageSize(size);
+          },
           showSizeChanger: true,
-          showQuickJumper: true,
+          showQuickJumper: false,
           showTotal: (total, range) => 
             `${range[0]}-${range[1]} dari ${total} item`,
           pageSizeOptions: ['10', '20', '50', '100'],
-          defaultPageSize: 20
         } : false}
-        summary={(pageData) => {
-          if (!pageData || pageData.length === 0) return null;
+        summary={() => {
+          if (!data || data.length === 0) return null;
           
-          const totalPagu = pageData.reduce((sum, item) => sum + (item.pagu || 0), 0);
-          const totalRealisasi = pageData.reduce((sum, item) => sum + (item.realisasi || 0), 0);
+          // The user requested to ONLY sum "Detail Belanja" (kode rekening 14-15 digit, level: 'belanja')
+          const leafNodes = data.filter(item => item.level === 'belanja');
+          const dataToSum = leafNodes.length > 0 ? leafNodes : data;
+          
+          const totalPagu = dataToSum.reduce((sum, item) => sum + (item.pagu || 0), 0);
+          const totalRealisasi = dataToSum.reduce((sum, item) => sum + (item.realisasi || 0), 0);
           const totalSisa = totalPagu - totalRealisasi;
           const avgPercentage = totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
+          
+          // Also count the visible items on screen for clarity
+          const totalItems = data.length;
 
           return (
             <Table.Summary.Row style={{ background: '#fafafa', fontWeight: 'bold' }}>
               <Table.Summary.Cell index={0} colSpan={6}>
                 <div style={{ textAlign: 'right', paddingRight: 8 }}>
-                  Total ({pageData.length} item):
+                  Total ({totalItems} item):
                 </div>
               </Table.Summary.Cell>
               <Table.Summary.Cell index={1}>

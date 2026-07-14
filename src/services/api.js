@@ -47,8 +47,10 @@ export const getBudgetData = async (params = {}) => {
     // Gunakan cache agar tidak fetch ulang jika data sudah ada
     let flatData = await getCachedBudgetItems();
     
-    // Only return belanja level for the table
-    flatData = flatData.filter(item => item.level === 'belanja');
+    // Only return sub_kegiatan, belanja_rincian_objek (which user calls Jenis Belanja), and belanja (detail belanja)
+    flatData = flatData.filter(item => 
+      ['sub_kegiatan', 'belanja_rincian_objek', 'belanja'].includes(item.level)
+    );
 
     const user = getCurrentUser();
     if (user && user.role !== 'admin') {

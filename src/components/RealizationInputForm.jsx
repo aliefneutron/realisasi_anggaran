@@ -34,6 +34,7 @@ import {
     parseRealizationExcel,
     validateRealizationData
 } from '../utils/excelUtils';
+import { getBidangsForKodeRekening } from '../utils/bidangMapping';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -102,12 +103,15 @@ const RealizationInputForm = ({ onSave }) => {
                 } else if (node.level === 'program') {
                     programName = node.name;
                 } else if (node.level === 'kegiatan') {
+                    // Use getBidangsForKodeRekening to reliably get all Bidangs from the kode_rekening
+                    const mappedBidangs = getBidangsForKodeRekening(node.kode_rekening);
+                    
                     // Found a kegiatan
                     const kegiatanItem = {
                         id: node.id,
                         name: node.name,
                         kode_rekening: node.kode_rekening,
-                        bidang: bidangName,
+                        bidang: mappedBidangs, // Now an array of Bidangs
                         program: programName,
                         subKegiatanList: []
                     };
@@ -167,13 +171,25 @@ const RealizationInputForm = ({ onSave }) => {
     };
 
     const uniqueBidangs = useMemo(() => {
-        const bidangs = new Set(kegiatanList.map(k => k.bidang).filter(Boolean));
+        const bidangs = new Set();
+        kegiatanList.forEach(k => {
+            if (Array.isArray(k.bidang)) {
+                k.bidang.forEach(b => bidangs.add(b));
+            } else if (k.bidang) {
+                bidangs.add(k.bidang);
+            }
+        });
         return ['Semua', ...Array.from(bidangs).sort()];
     }, [kegiatanList]);
 
     const displayedKegiatan = useMemo(() => {
         if (selectedBidangFilter === 'Semua') return kegiatanList;
-        return kegiatanList.filter(k => k.bidang === selectedBidangFilter);
+        return kegiatanList.filter(k => {
+            if (Array.isArray(k.bidang)) {
+                return k.bidang.includes(selectedBidangFilter);
+            }
+            return k.bidang === selectedBidangFilter;
+        });
     }, [kegiatanList, selectedBidangFilter]);
 
     // Handle kegiatan selection

@@ -115,29 +115,8 @@ const HomePage = () => {
     
     const newSummary = calculateSummary(filtered);
     
-    const hasTimeFilter = (filters.semester && filters.semester !== 'all') || (filters.bulan && filters.bulan !== 'all');
-    
-    // Override totals if specific Bidang is selected, or if 'all' is selected
-    if (filters.bidang && filters.bidang.length === 1) {
-      const selectedBidang = filters.bidang[0];
-      if (exactTotals[selectedBidang]) {
-        newSummary.totalPagu = exactTotals[selectedBidang].pagu;
-        if (!hasTimeFilter) {
-          newSummary.totalRealisasi = exactTotals[selectedBidang].realisasi;
-        }
-        newSummary.totalSisa = newSummary.totalPagu - newSummary.totalRealisasi;
-        newSummary.averagePercentage = newSummary.totalPagu > 0 ? (newSummary.totalRealisasi / newSummary.totalPagu) * 100 : 0;
-      }
-    } else if (!filters.bidang || filters.bidang.length === 0) {
-      if (exactTotals['DINKES_INDUK']) {
-        newSummary.totalPagu = exactTotals['DINKES_INDUK'].pagu;
-        if (!hasTimeFilter) {
-          newSummary.totalRealisasi = exactTotals['DINKES_INDUK'].realisasi;
-        }
-        newSummary.totalSisa = newSummary.totalPagu - newSummary.totalRealisasi;
-        newSummary.averagePercentage = newSummary.totalPagu > 0 ? (newSummary.totalRealisasi / newSummary.totalPagu) * 100 : 0;
-      }
-    }
+    // The user requested to ONLY sum "Detail Belanja" (kode rekening 14-15 digit)
+    // So we completely rely on calculateSummary(filtered) which now strictly filters for leaf nodes.
     
     setSummary(newSummary);
   }, [data, exactTotals, historyData]);
