@@ -91,20 +91,78 @@ export const getStatusColor = (status) => {
 export const processBudgetData = (rawData) => {
   if (!Array.isArray(rawData)) return [];
   
-  return rawData.map((item, index) => {
-    const pagu = parseFloat(item.pagu) || 0;
-    const realisasi = parseFloat(item.realisasi) || 0;
-    const sisa = calculateSisa(pagu, realisasi);
-    const percentage = calculatePercentage(realisasi, pagu);
+  const nodeMap = {};
+  const childrenMap = {};
+  
+  // 1. Initialize node map and children mapping
+  rawData.forEach((item, index) => {
+    nodeMap[item.id_unik] = {
+      ...item,
+      id: item.id || index + 1,
+      pagu: parseFloat(item.pagu) || 0,
+      realisasi: parseFloat(item.realisasi) || 0
+    };
+    if (!childrenMap[item.id_unik]) {
+      childrenMap[item.id_unik] = [];
+    }
+    if (item.parent_id_unik) {
+      if (!childrenMap[item.parent_id_unik]) {
+        childrenMap[item.parent_id_unik] = [];
+      }
+      childrenMap[item.parent_id_unik].push(item.id_unik);
+    }
+  });
+
+  // 2. Recursive function to calculate sums from bottom up
+  const aggregate = (nodeId) => {
+    const node = nodeMap[nodeId];
+    if (!node) return { pagu: 0, realisasi: 0 };
+    
+    const childrenIds = childrenMap[nodeId] || [];
+    
+    if (childrenIds.length > 0) {
+      let sumPagu = 0;
+      let sumRealisasi = 0;
+      
+      childrenIds.forEach(childId => {
+        const { pagu, realisasi } = aggregate(childId);
+        sumPagu += pagu;
+        sumRealisasi += realisasi;
+      });
+      
+      // Override parent's value with the sum of its children's values
+      node.pagu = sumPagu;
+      node.realisasi = sumRealisasi;
+    }
+    
+    return { pagu: node.pagu, realisasi: node.realisasi };
+  };
+
+  // Find all nodes that are not children of anyone else (roots)
+  const allChildIds = new Set();
+  Object.values(childrenMap).forEach(children => {
+    children.forEach(id => allChildIds.add(id));
+  });
+  
+  const rootIds = rawData
+    .filter(item => !allChildIds.has(item.id_unik))
+    .map(item => item.id_unik);
+    
+  // 3. Trigger aggregation from roots
+  rootIds.forEach(rootId => {
+    aggregate(rootId);
+  });
+  
+  // 4. Return processed items with calculated statuses
+  return Object.values(nodeMap).map(node => {
+    const sisa = calculateSisa(node.pagu, node.realisasi);
+    const percentage = calculatePercentage(node.realisasi, node.pagu);
     const status = getStatus(percentage);
     
     return {
-      ...item,
-      id: item.id || index + 1,
-      pagu,
-      realisasi,
+      ...node,
       sisa,
-      percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
+      percentage: Math.round(percentage * 100) / 100,
       status,
       statusLabel: getStatusLabel(status),
       statusColor: getStatusColor(status)
@@ -350,15 +408,19 @@ export const parseXLSXFile = (file) => {
         }
 
         // Map to application's data structure
-        const parsedData = json.map((row, index) => ({
-          id: `imported-${Date.now()}-${index}`, // Temporary unique ID
-          nama_kegiatan: row['Nama Kegiatan'],
-          kode_rekening: row['Kode Rekening'],
-          pagu: parseFloat(row['Pagu']) || 0,
-          realisasi: parseFloat(row['Realisasi']) || 0,
-          semester: row['Semester'],
-          bidang: row['Bidang'],
-        }));
+        const parsedData = json.map((row, index) => {
+          const kodeRekening = row['Kode Rekening'];
+          const determinedBidang = getBidangByKodeRekening(kodeRekening);
+          return {
+            id: `imported-${Date.now()}-${index}`, // Temporary unique ID
+            nama_kegiatan: row['Nama Kegiatan'],
+            kode_rekening: kodeRekening,
+            pagu: parseFloat(row['Pagu']) || 0,
+            realisasi: parseFloat(row['Realisasi']) || 0,
+            semester: row['Semester'],
+            bidang: determinedBidang !== 'Umum' ? determinedBidang : (row['Bidang'] || 'Umum'),
+          };
+        });
 
         resolve(parsedData);
       } catch (error) {

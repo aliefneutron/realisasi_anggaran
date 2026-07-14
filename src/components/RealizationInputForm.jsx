@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Card,
     Input,
@@ -12,7 +12,8 @@ import {
     Row,
     Col,
     Statistic,
-    Upload
+    Upload,
+    Select
 } from 'antd';
 import {
     SearchOutlined,
@@ -36,6 +37,7 @@ import {
 
 const { Title, Text } = Typography;
 const { Search } = Input;
+const { Option } = Select;
 
 const RealizationInputForm = ({ onSave }) => {
     const { currentUser } = useAuth();
@@ -43,6 +45,9 @@ const RealizationInputForm = ({ onSave }) => {
     // State for navigation
     const [step, setStep] = useState(1); // 1: Kegiatan, 2: Sub Kegiatan, 3: Belanja
     const [loading, setLoading] = useState(false);
+
+    // State for Filter Bidang
+    const [selectedBidangFilter, setSelectedBidangFilter] = useState('Semua');
 
     // State for selections
     const [kegiatanList, setKegiatanList] = useState([]);
@@ -160,6 +165,16 @@ const RealizationInputForm = ({ onSave }) => {
         traverse(data);
         return result;
     };
+
+    const uniqueBidangs = useMemo(() => {
+        const bidangs = new Set(kegiatanList.map(k => k.bidang).filter(Boolean));
+        return ['Semua', ...Array.from(bidangs).sort()];
+    }, [kegiatanList]);
+
+    const displayedKegiatan = useMemo(() => {
+        if (selectedBidangFilter === 'Semua') return kegiatanList;
+        return kegiatanList.filter(k => k.bidang === selectedBidangFilter);
+    }, [kegiatanList, selectedBidangFilter]);
 
     // Handle kegiatan selection
     const handleSelectKegiatan = (kegiatan) => {
@@ -373,10 +388,22 @@ const RealizationInputForm = ({ onSave }) => {
             {/* Step 1: Select Kegiatan */}
             {step === 1 && (
                 <div>
-                    <Title level={4}>Pilih Kegiatan</Title>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <Title level={4} style={{ margin: 0 }}>Pilih Kegiatan</Title>
+                        <Select
+                            style={{ width: 250 }}
+                            value={selectedBidangFilter}
+                            onChange={(value) => setSelectedBidangFilter(value)}
+                            placeholder="Filter Bidang"
+                        >
+                            {uniqueBidangs.map(bidang => (
+                                <Option key={bidang} value={bidang}>{bidang}</Option>
+                            ))}
+                        </Select>
+                    </div>
                     <List
                         loading={loading}
-                        dataSource={kegiatanList}
+                        dataSource={displayedKegiatan}
                         renderItem={(kegiatan) => (
                             <List.Item
                                 key={kegiatan.id}
@@ -489,7 +516,7 @@ const RealizationInputForm = ({ onSave }) => {
                 </div>
             )}
 
-            {/* Step 3: Input Realization for Belanja */}
+            {/* Step 3: Input Realization for Detail Belanja */}
             {step === 3 && (
                 <div>
                     <Button
@@ -508,7 +535,7 @@ const RealizationInputForm = ({ onSave }) => {
                         <Text type="secondary">Kode: {selectedSubKegiatan.kode_rekening}</Text>
                     </Card>
 
-                    <Title level={4}>Menampilkan Daftar Belanja Didalam Sub Kegiatan {selectedSubKegiatan.name}</Title>
+                    <Title level={4}>Menampilkan Daftar Detail Belanja Didalam Sub Kegiatan {selectedSubKegiatan.name}</Title>
 
                     {/* Excel Import Buttons */}
                     <Space style={{ marginBottom: 16 }}>

@@ -22,6 +22,7 @@ import {
   getStatusColor,
   exportToXLSX 
 } from '../utils/helpers';
+import { getLevelInfoByKodeRekening } from '../utils/bidangMapping';
 
 const BudgetTable = ({ 
   data = [], 
@@ -120,17 +121,31 @@ const BudgetTable = ({
       title: 'Kode Rekening',
       dataIndex: 'kode_rekening',
       key: 'kode_rekening',
-      width: 130,
-      render: (text) => (
-        <code style={{ 
-          background: '#f5f5f5', 
-          padding: '2px 6px', 
-          borderRadius: '4px',
-          fontSize: '12px'
-        }}>
-          {text}
-        </code>
-      ),
+      width: 150,
+      render: (text) => {
+        const levelInfo = getLevelInfoByKodeRekening(text);
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <code style={{ 
+              background: '#f5f5f5', 
+              padding: '2px 6px', 
+              borderRadius: '4px',
+              fontSize: '12px'
+            }}>
+              {text}
+            </code>
+            {levelInfo !== 'Unknown' && (
+              <Tag color={
+                levelInfo === 'Sub Kegiatan' ? 'purple' : 
+                levelInfo === 'Jenis Belanja' ? 'orange' : 
+                levelInfo === 'Detail Belanja' ? 'cyan' : 'default'
+              } style={{ fontSize: '10px', width: 'fit-content', margin: 0 }}>
+                {levelInfo}
+              </Tag>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: 'Bidang',

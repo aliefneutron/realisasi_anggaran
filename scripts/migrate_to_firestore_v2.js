@@ -1,6 +1,7 @@
 const XLSX = require('xlsx');
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, setDoc, doc, writeBatch, getDocs } = require('firebase/firestore');
+const { getBidangByKodeRekening } = require('../src/utils/bidangMapping.js');
 
 const firebaseConfig = {
   apiKey: "AIzaSyAFXq9Rku14Bx9edvI0gmLpTvArbsWqeTA",
@@ -141,11 +142,13 @@ async function migrate() {
                 parent_id_unik = parent_kode;
             }
 
-            let bidang = row[15];
-            if (typeof bidang !== 'string' || !bidang.trim() || bidang.trim() === '0%') {
-                bidang = 'Umum';
-            } else {
-                bidang = bidang.trim();
+            // Use getBidangByKodeRekening, fallback to Excel column if 'Umum'
+            let bidang = getBidangByKodeRekening(kode);
+            if (bidang === 'Umum') {
+                let excelBidang = row[15];
+                if (typeof excelBidang === 'string' && excelBidang.trim() && excelBidang.trim() !== '0%') {
+                    bidang = excelBidang.trim();
+                }
             }
             
             const item = {
