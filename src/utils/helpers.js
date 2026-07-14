@@ -169,6 +169,12 @@ export const filterData = (data, filters, historyData = []) => {
   const hasTimeFilter = (filters.semester && filters.semester !== 'all') || (filters.bulan && filters.bulan !== 'all');
   
   if (historyData && historyData.length > 0 && hasTimeFilter) {
+    // Build a lookup for parent tracking
+    const parentMap = {};
+    data.forEach(item => {
+      parentMap[item.kode_rekening] = item.parent_kode;
+    });
+
     historyData.forEach(record => {
       if (!record.tanggal) return;
       const month = new Date(record.tanggal).getMonth(); // 0-indexed (Jan=0, Dec=11)
@@ -184,10 +190,18 @@ export const filterData = (data, filters, historyData = []) => {
       }
       
       if (includeRecord) {
-        if (!realizationMap[record.kode_rekening]) {
-          realizationMap[record.kode_rekening] = 0;
+        let currentKode = record.kode_rekening;
+        const amount = parseFloat(record.jumlah_realisasi) || 0;
+        
+        // Traverse up the tree using parentMap to aggregate totals for parent nodes
+        while (currentKode) {
+          if (!realizationMap[currentKode]) {
+            realizationMap[currentKode] = 0;
+          }
+          realizationMap[currentKode] += amount;
+          
+          currentKode = parentMap[currentKode]; // Move to parent
         }
-        realizationMap[record.kode_rekening] += (parseFloat(record.jumlah_realisasi) || 0);
       }
     });
   }
