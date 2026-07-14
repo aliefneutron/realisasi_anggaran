@@ -166,13 +166,18 @@ export const filterData = (data, filters, historyData = []) => {
   // Create a map of kode_rekening -> dynamically calculated realisasi
   const realizationMap = {};
   
-  if (historyData && historyData.length > 0 && filters.semester && filters.semester !== 'all') {
+  const hasTimeFilter = (filters.semester && filters.semester !== 'all') || (filters.bulan && filters.bulan !== 'all');
+  
+  if (historyData && historyData.length > 0 && hasTimeFilter) {
     historyData.forEach(record => {
       if (!record.tanggal) return;
       const month = new Date(record.tanggal).getMonth(); // 0-indexed (Jan=0, Dec=11)
       
       let includeRecord = false;
-      if (filters.semester === 'Semester 1') {
+      
+      if (filters.bulan && filters.bulan !== 'all') {
+        includeRecord = (month === parseInt(filters.bulan, 10));
+      } else if (filters.semester === 'Semester 1') {
         includeRecord = month < 6; // Jan - Jun
       } else if (filters.semester === 'Semester 2') {
         includeRecord = true; // Jan - Dec (cumulative)
@@ -188,8 +193,8 @@ export const filterData = (data, filters, historyData = []) => {
   }
   
   return data.map(item => {
-    // If semester filter is active and historyData is provided, override the realisasi value
-    if (filters.semester && filters.semester !== 'all' && historyData && historyData.length > 0) {
+    // If time filter is active and historyData is provided, override the realisasi value
+    if (hasTimeFilter && historyData && historyData.length > 0) {
       const newRealisasi = realizationMap[item.kode_rekening] || 0;
       const newSisa = calculateSisa(item.pagu, newRealisasi);
       const newPercentage = calculatePercentage(newRealisasi, item.pagu);

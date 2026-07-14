@@ -26,6 +26,7 @@ const DetailPage = () => {
   const [filterOptions, setFilterOptions] = useState({ semesters: [], bidangs: [] });
   const [currentFilters, setCurrentFilters] = useState({
     semester: getCurrentSemester(),
+    bulan: 'all',
     bidang: [],
     search: ''
   });

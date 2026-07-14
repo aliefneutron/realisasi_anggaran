@@ -10,6 +10,21 @@ const getCurrentSemester = () => {
   return month < 6 ? 'Semester 1' : 'Semester 2';
 };
 
+const MONTHS = [
+  { value: '0', label: 'Januari' },
+  { value: '1', label: 'Februari' },
+  { value: '2', label: 'Maret' },
+  { value: '3', label: 'April' },
+  { value: '4', label: 'Mei' },
+  { value: '5', label: 'Juni' },
+  { value: '6', label: 'Juli' },
+  { value: '7', label: 'Agustus' },
+  { value: '8', label: 'September' },
+  { value: '9', label: 'Oktober' },
+  { value: '10', label: 'November' },
+  { value: '11', label: 'Desember' }
+];
+
 const Filters = ({ 
   onFilterChange, 
   loading = false, 
@@ -18,6 +33,7 @@ const Filters = ({
 }) => {
   const [filters, setFilters] = useState({
     semester: getCurrentSemester(),
+    bulan: 'all',
     bidang: [],
     search: '',
     ...initialFilters
@@ -34,6 +50,10 @@ const Filters = ({
     setFilters(prev => ({ ...prev, semester: value }));
   };
 
+  const handleBulanChange = (value) => {
+    setFilters(prev => ({ ...prev, bulan: value }));
+  };
+
   const handleBidangChange = (value) => {
     setFilters(prev => ({ ...prev, bidang: value }));
   };
@@ -45,6 +65,7 @@ const Filters = ({
   const handleReset = () => {
     const resetFilters = {
       semester: 'all',
+      bulan: 'all',
       bidang: [],
       search: ''
     };
@@ -53,6 +74,7 @@ const Filters = ({
 
   const hasActiveFilters = () => {
     return filters.semester !== 'all' || 
+           filters.bulan !== 'all' ||
            filters.bidang.length > 0 || 
            filters.search.trim() !== '';
   };
@@ -93,7 +115,7 @@ const Filters = ({
     >
       <Row gutter={[16, 16]} align="middle">
         {/* Semester Filter */}
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={12} md={5}>
           <div className="filter-item">
             <div className="filter-label" style={{ 
               fontWeight: 500, 
@@ -120,8 +142,36 @@ const Filters = ({
           </div>
         </Col>
 
+        {/* Bulan Filter */}
+        <Col xs={24} sm={12} md={5}>
+          <div className="filter-item">
+            <div className="filter-label" style={{ 
+              fontWeight: 500, 
+              marginBottom: 8, 
+              color: '#333',
+              fontSize: '14px'
+            }}>
+              Bulan
+            </div>
+            <Select
+              value={filters.bulan}
+              onChange={handleBulanChange}
+              style={{ width: '100%' }}
+              placeholder="Pilih Bulan"
+              loading={loading}
+            >
+              <Option value="all">Semua Bulan</Option>
+              {MONTHS.map(m => (
+                <Option key={m.value} value={m.value}>
+                  {m.label}
+                </Option>
+              ))}
+            </Select>
+          </div>
+        </Col>
+
         {/* Bidang Filter */}
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={12} md={5}>
           <div className="filter-item">
             <div className="filter-label" style={{ 
               fontWeight: 500, 
@@ -151,7 +201,7 @@ const Filters = ({
         </Col>
 
         {/* Search Filter */}
-        <Col xs={24} sm={12} md={8}>
+        <Col xs={24} sm={12} md={5}>
           <div className="filter-item">
             <div className="filter-label" style={{ 
               fontWeight: 500, 
@@ -198,6 +248,7 @@ const Filters = ({
                 }}>
                   {[
                     filters.semester !== 'all' ? 1 : 0,
+                    filters.bulan !== 'all' ? 1 : 0,
                     filters.bidang.length > 0 ? 1 : 0,
                     filters.search.trim() !== '' ? 1 : 0
                   ].reduce((a, b) => a + b, 0)}
@@ -225,6 +276,17 @@ const Filters = ({
                   fontSize: '12px'
                 }}>
                   Semester: {filters.semester}
+                </span>
+              )}
+              {filters.bulan !== 'all' && (
+                <span style={{ 
+                  background: '#e6f7ff', 
+                  color: '#1890ff', 
+                  padding: '2px 8px', 
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}>
+                  Bulan: {MONTHS.find(m => m.value === filters.bulan)?.label}
                 </span>
               )}
               {filters.bidang.length > 0 && (
