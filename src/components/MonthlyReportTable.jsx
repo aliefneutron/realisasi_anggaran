@@ -14,10 +14,13 @@ const months = [
 
 const MonthlyReportTable = () => {
   const [loading, setLoading] = useState(false);
+  const [loadingTip, setLoadingTip] = useState('Memuat data...');
   const [hierarchyData, setHierarchyData] = useState([]);
   const [historyData, setHistoryData] = useState([]);
   const [selectedBidang, setSelectedBidang] = useState('Semua');
   const [bidangList, setBidangList] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     fetchData();
@@ -29,11 +32,11 @@ const MonthlyReportTable = () => {
       invalidateCache();
     }
     setLoading(true);
+    setLoadingTip('Memuat struktur anggaran...');
     try {
-      const [hierarchyRes, historyRes] = await Promise.all([
-        getHierarchicalData(),
-        getAllRealizationHistory()
-      ]);
+      const hierarchyRes = await getHierarchicalData();
+      setLoadingTip('Memuat data realisasi...');
+      const historyRes = await getAllRealizationHistory();
 
       if (hierarchyRes.success) {
         setHierarchyData(hierarchyRes.data);
@@ -61,6 +64,7 @@ const MonthlyReportTable = () => {
       message.error('Gagal memuat data laporan');
     } finally {
       setLoading(false);
+      setLoadingTip('Memuat data...');
     }
   };
 
@@ -310,9 +314,18 @@ const MonthlyReportTable = () => {
       <Table 
         columns={columns} 
         dataSource={tableData}
-        loading={loading}
-        pagination={false}
-        scroll={{ x: 2000, y: 600 }}
+        loading={{ spinning: loading, tip: loadingTip }}
+        rowKey="key"
+        pagination={{
+          current: currentPage,
+          pageSize: PAGE_SIZE,
+          total: tableData.length,
+          onChange: (page) => setCurrentPage(page),
+          showSizeChanger: false,
+          showTotal: (total, range) => `${range[0]}-${range[1]} dari ${total} baris`,
+          size: 'small',
+        }}
+        scroll={{ x: 2000, y: 550 }}
         size="small"
         rowClassName={(record) => record.isSubKegiatan ? 'subkeg-row' : 'belanja-row'}
       />

@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -18,3 +18,15 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
 export const db = getFirestore(app);
+
+// Aktifkan offline persistence — data di-cache ke IndexedDB browser
+// Sehingga load berikutnya (bahkan setelah refresh) jauh lebih cepat
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    // Beberapa tab terbuka sekaligus — persistence hanya aktif di satu tab
+    console.warn('Firestore persistence: multiple tabs open, persistence disabled.');
+  } else if (err.code === 'unimplemented') {
+    // Browser tidak mendukung IndexedDB
+    console.warn('Firestore persistence: browser tidak mendukung IndexedDB.');
+  }
+});
