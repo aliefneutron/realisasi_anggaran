@@ -98,7 +98,6 @@ const AppHeader = () => {
         {/* Unit SKPD only visible for admin */}
         {currentUser?.role === 'admin' && (
           <>
-            <a href="/sipd-cards" style={{ color: 'white', marginRight: '24px' }}>Unit SKPD</a>
             <a href="/upload" style={{ color: 'white' }}>Setup Data</a>
           </>
         )}
