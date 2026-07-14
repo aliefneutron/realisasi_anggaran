@@ -373,7 +373,7 @@ const BudgetTable = ({
 
           return (
             <Table.Summary.Row style={{ background: '#fafafa', fontWeight: 'bold' }}>
-              <Table.Summary.Cell index={0} colSpan={5}>
+              <Table.Summary.Cell index={0} colSpan={6}>
                 <div style={{ textAlign: 'right', paddingRight: 8 }}>
                   Total ({pageData.length} item):
                 </div>
