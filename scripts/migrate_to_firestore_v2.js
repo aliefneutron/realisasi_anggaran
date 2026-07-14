@@ -129,7 +129,13 @@ async function migrate() {
                     continue;
                 }
                 id_unik = current_sub_kegiatan_kode + '-' + kode_rekening;
-                parent_id_unik = current_sub_kegiatan_kode + '-' + parent_kode;
+                
+                // If the parent is the sub_kegiatan itself, its id_unik is just the sub_kegiatan code
+                if (parent_kode === current_sub_kegiatan_kode) {
+                    parent_id_unik = parent_kode;
+                } else {
+                    parent_id_unik = current_sub_kegiatan_kode + '-' + parent_kode;
+                }
             } else {
                 id_unik = kode_rekening;
                 parent_id_unik = parent_kode;

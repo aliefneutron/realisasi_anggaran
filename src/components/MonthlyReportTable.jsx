@@ -68,12 +68,14 @@ const MonthlyReportTable = () => {
     }
   };
 
-  // Map history by kode_rekening and month
+  // Map history by id_unik and month
   const realizationMap = useMemo(() => {
     const map = {};
     historyData.forEach(item => {
-      if (!map[item.kode_rekening]) {
-        map[item.kode_rekening] = {
+      // If item doesn't have id_unik (old data), fallback to kode_rekening
+      const key = item.id_unik || item.kode_rekening;
+      if (!map[key]) {
+        map[key] = {
           total: 0,
           months: Array(12).fill(0)
         };
@@ -84,8 +86,8 @@ const MonthlyReportTable = () => {
         const monthIndex = date.getMonth(); // 0-11
         const amount = parseFloat(item.jumlah_realisasi) || 0;
         
-        map[item.kode_rekening].months[monthIndex] += amount;
-        map[item.kode_rekening].total += amount;
+        map[key].months[monthIndex] += amount;
+        map[key].total += amount;
       }
     });
     return map;
@@ -138,7 +140,9 @@ const MonthlyReportTable = () => {
             let belanjaNo = 1;
 
             allBelanja.forEach(belanja => {
-              const rMap = realizationMap[belanja.kode_rekening] || { total: 0, months: Array(12).fill(0) };
+              // belanja.id from API is now id_unik
+              const key = belanja.id || belanja.kode_rekening;
+              const rMap = realizationMap[key] || { total: 0, months: Array(12).fill(0) };
               const realisasi = rMap.total;
               const pagu = belanja.pagu || 0;
 
