@@ -291,7 +291,7 @@ const DetailPage = () => {
       <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
         <Col>
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-            Input Data Realisasi Anggaran
+            Data Realisasi Anggaran
           </h1>
         </Col>
         <Col>

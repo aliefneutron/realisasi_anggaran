@@ -93,7 +93,7 @@ const AppHeader = () => {
       <nav style={{ lineHeight: '64px', flex: 1, marginLeft: '40px' }}>
         <a href="/" style={{ color: 'white', marginRight: '24px' }}>Dashboard</a>
         <a href="/monthly-report" style={{ color: 'white', marginRight: '24px' }}>Laporan Bulanan</a>
-        <a href="/detail" style={{ color: 'white', marginRight: '24px' }}>Input Data</a>
+        <a href="/detail" style={{ color: 'white', marginRight: '24px' }}>Data Realisasi</a>
         <a href="/hierarchy" style={{ color: 'white', marginRight: '24px' }}>Hierarki</a>
         {/* Unit SKPD only visible for admin */}
         {currentUser?.role === 'admin' && (
