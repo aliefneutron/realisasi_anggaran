@@ -51,7 +51,20 @@ const Filters = ({
   };
 
   const handleBulanChange = (value) => {
-    setFilters(prev => ({ ...prev, bulan: value }));
+    setFilters(prev => {
+      const newFilters = { ...prev, bulan: value };
+      
+      if (value !== 'all') {
+        const monthNum = parseInt(value, 10);
+        if (monthNum >= 0 && monthNum <= 5) {
+          newFilters.semester = 'Semester 1';
+        } else if (monthNum >= 6 && monthNum <= 11) {
+          newFilters.semester = 'Semester 2';
+        }
+      }
+      
+      return newFilters;
+    });
   };
 
   const handleBidangChange = (value) => {
