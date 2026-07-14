@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Card, Typography, Spin, message, Space, Button, Select } from 'antd';
 import { FileExcelOutlined, ReloadOutlined } from '@ant-design/icons';
-import { getHierarchicalData, getAllRealizationHistory } from '../services/api';
+import { getHierarchicalData, getAllRealizationHistory, invalidateCache } from '../services/api';
 import * as XLSX from 'xlsx';
 
 const { Title, Text } = Typography;
@@ -23,7 +23,11 @@ const MonthlyReportTable = () => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
+    if (forceRefresh) {
+      // Hapus cache agar data diambil ulang dari Firestore
+      invalidateCache();
+    }
     setLoading(true);
     try {
       const [hierarchyRes, historyRes] = await Promise.all([
@@ -293,7 +297,7 @@ const MonthlyReportTable = () => {
               <Option key={b} value={b}>{b}</Option>
             ))}
           </Select>
-          <Button icon={<ReloadOutlined />} onClick={fetchData} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={() => fetchData(true)} loading={loading}>
             Refresh
           </Button>
           <Button type="primary" icon={<FileExcelOutlined />} onClick={exportToExcel} disabled={tableData.length === 0}>

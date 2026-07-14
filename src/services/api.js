@@ -10,6 +10,33 @@ const api = axios.create({
   },
 });
 
+// ─── In-memory cache ───────────────────────────────────────────────────────
+let _budgetItemsCache = null;   // Array of raw docs from 'budget_items'
+let _historyCache = null;       // Array of raw docs from 'realisasi_history'
+
+/** Hapus cache agar fetch berikutnya mengambil data fresh dari Firestore */
+export const invalidateCache = () => {
+  _budgetItemsCache = null;
+  _historyCache = null;
+};
+
+/** Ambil budget_items dengan cache */
+const getCachedBudgetItems = async () => {
+  if (_budgetItemsCache !== null) return _budgetItemsCache;
+  const querySnapshot = await getDocs(collection(db, 'budget_items'));
+  _budgetItemsCache = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  return _budgetItemsCache;
+};
+
+/** Ambil realisasi_history dengan cache */
+const getCachedHistoryItems = async () => {
+  if (_historyCache !== null) return _historyCache;
+  const querySnapshot = await getDocs(collection(db, 'realisasi_history'));
+  _historyCache = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  return _historyCache;
+};
+// ───────────────────────────────────────────────────────────────────────────
+
 const getCurrentUser = () => {
   const userStr = localStorage.getItem('currentUser');
   return userStr ? JSON.parse(userStr) : null;
@@ -17,8 +44,8 @@ const getCurrentUser = () => {
 
 export const getBudgetData = async (params = {}) => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'budget_items'));
-    let flatData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Gunakan cache agar tidak fetch ulang jika data sudah ada
+    let flatData = await getCachedBudgetItems();
     
     // Only return belanja level for the table
     flatData = flatData.filter(item => item.level === 'belanja');
@@ -102,8 +129,8 @@ const buildHierarchy = (items) => {
 
 export const getHierarchicalData = async () => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'budget_items'));
-    const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Reuse cache yang sama dengan getBudgetData
+    const items = await getCachedBudgetItems();
     
     let hierarchy = buildHierarchy(items);
     
@@ -188,8 +215,8 @@ export const getBudgetById = async (id) => {
 
 export const getFilterOptions = async () => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'budget_items'));
-    const items = querySnapshot.docs.map(doc => doc.data());
+    // Reuse cache yang sama, tidak perlu query Firestore lagi
+    const items = await getCachedBudgetItems();
     
     const bidangs = [...new Set(items.map(item => item.bidang).filter(b => b && b !== 'Umum'))];
     const semesters = ['Semester 1', 'Semester 2'];
@@ -229,13 +256,12 @@ export const addRealizationHistory = async (realizationDataArray) => {
   try {
     const results = { success: 0, failed: 0, errors: [] };
     
-    // We fetch all budget items first to map kode_rekening to document ID
-    const querySnapshot = await getDocs(collection(db, 'budget_items'));
+    // Gunakan cache untuk mapping kode_rekening -> document ID
+    const cachedItems = await getCachedBudgetItems();
     const budgetItems = {};
-    querySnapshot.docs.forEach(doc => {
-      const data = doc.data();
-      if (data.kode_rekening) {
-        budgetItems[data.kode_rekening] = { id: doc.id, ...data };
+    cachedItems.forEach(item => {
+      if (item.kode_rekening) {
+        budgetItems[item.kode_rekening] = item;
       }
     });
 
@@ -273,6 +299,9 @@ export const addRealizationHistory = async (realizationDataArray) => {
       }
     }
 
+    // Invalidate cache setelah data baru ditulis ke Firestore
+    invalidateCache();
+    
     return { success: true, data: results };
   } catch (error) {
     console.error('Error adding realization history:', error);
@@ -301,8 +330,8 @@ export const getRealizationHistory = async (budgetItemId) => {
 
 export const getAllRealizationHistory = async () => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'realisasi_history'));
-    const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Gunakan cache agar tidak re-fetch seluruh koleksi setiap render
+    const history = await getCachedHistoryItems();
     return { success: true, data: history };
   } catch (error) {
     console.error('Error fetching all realization history:', error);
