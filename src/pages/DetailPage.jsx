@@ -310,50 +310,6 @@ const DetailPage = () => {
               Refresh
             </Button>
             
-            <Button
-              icon={<FileExcelOutlined />}
-              onClick={handleDownloadRealizationTemplate}
-            >
-              Template Realisasi
-            </Button>
-
-            <Upload
-              name="file_realisasi"
-              accept=".xlsx, .xls"
-              showUploadList={false}
-              beforeUpload={handleImportRealization}
-              customRequest={({ file, onSuccess }) => {
-                setTimeout(() => { onSuccess("ok"); }, 0);
-              }}
-            >
-              <Button type="dashed" icon={<UploadOutlined />}>
-                Import Realisasi
-              </Button>
-            </Upload>
-
-            <Upload
-              name="file"
-              accept=".xlsx, .xls"
-              showUploadList={false}
-              beforeUpload={handleImport}
-              customRequest={({ file, onSuccess }) => { // Dummy request
-                setTimeout(() => {
-                  onSuccess("ok");
-                }, 0);
-              }}
-            >
-              <Button icon={<UploadOutlined />}>
-                Import Data SIPD
-              </Button>
-            </Upload>
-
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleAdd}
-            >
-              Tambah Data
-            </Button>
           </Space>
         </Col>
       </Row>
