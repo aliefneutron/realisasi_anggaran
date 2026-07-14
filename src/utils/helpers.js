@@ -265,15 +265,21 @@ export const filterData = (data, filters, historyData = []) => {
   }
   
   return data.map(item => {
-    // If time filter is active and historyData is provided, override the realisasi value
-    if (hasTimeFilter && historyData && historyData.length > 0) {
+    let newItem = { ...item };
+    
+    if (filters.semester && filters.semester !== 'all') {
+      newItem.semester = filters.semester;
+    }
+    
+    // If time filter is active, calculate from history. If no history, it's 0.
+    if (hasTimeFilter) {
       const newRealisasi = realizationMap[item.id_unik] || 0;
       const newSisa = calculateSisa(item.pagu, newRealisasi);
       const newPercentage = calculatePercentage(newRealisasi, item.pagu);
       const newStatus = getStatus(newPercentage);
       
-      return {
-        ...item,
+      newItem = {
+        ...newItem,
         realisasi: newRealisasi,
         sisa: newSisa,
         percentage: Math.round(newPercentage * 100) / 100,
@@ -282,7 +288,8 @@ export const filterData = (data, filters, historyData = []) => {
         statusColor: getStatusColor(newStatus)
       };
     }
-    return item;
+    
+    return newItem;
   }).filter(item => {
     // Bidang filter
     if (filters.bidang && filters.bidang.length > 0) {
